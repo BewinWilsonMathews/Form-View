@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Submissions Admin Portal</title>
+  <style>
+    :root{
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --accent: #4f46e5;
+      --danger: #ef4444;
+      --gap: 14px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      background:linear-gradient(180deg,#f8fafc, #f6f7fb);
+      color:#111827;
+      display:flex;
+      gap:var(--gap);
+      padding:18px;
+    }
+
+    .container{
+      flex:1;
+      display:grid;
+      grid-template-columns:320px 1fr;
+      gap:var(--gap);
+      width:100%;
+      max-width:1400px;
+      margin:0 auto;
+    }
+
+    /* Sidebar */
+    .sidebar{
+      background:var(--card);
+      border-radius:12px;
+      box-shadow:0 4px 14px rgba(15,23,42,0.06);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height:400px;
+    }
+    .sidebar .top{
+      padding:16px;
+      border-bottom:1px solid #eef1f6;
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    .logo {
+      width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#4f46e5);
+      display:flex;align-items:center;justify-content:center;color:white;font-weight:700;
+      font-size:16px;
+    }
+    .top h3{margin:0;font-size:15px}
+    .search{
+      margin:12px 16px 8px 16px;
+      display:flex;
+      gap:8px;
+    }
+    .search input{
+      flex:1;padding:10px 12px;border-radius:8px;border:1px solid #e6e9ef;font-size:14px;
+      outline:none;
+    }
+    .list{
+      overflow:auto;
+      padding:8px;
+    }
+    .item{
+      display:flex;
+      gap:12px;
+      padding:10px;
+      border-radius:10px;
+      align-items:center;
+      cursor:pointer;
+      transition:background .12s, transform .06s;
+    }
+    .item:hover{background: #fbfbff}
+    .item.selected{background:linear-gradient(90deg, rgba(79,70,229,0.06), rgba(99,102,241,0.03)); border-left:3px solid var(--accent); padding-left:7px;}
+    .avatar{
+      width:44px;height:44px;border-radius:8px;background:#eef2ff;color:var(--accent);
+      display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;
+      flex-shrink:0;
+    }
+    .meta{flex:1;min-width:0}
+    .meta .title{font-weight:600;font-size:14px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+    .meta .sub{font-size:13px;color:var(--muted);margin-top:3px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+    .small-time{font-size:12px;color:#9ca3af}
+
+    /* Details area */
+    .details{
+      background:var(--card);
+      border-radius:12px;
+      padding:18px;
+      box-shadow:0 6px 24px rgba(15,23,42,0.05);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .details-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
+    .details-head h2{margin:0;font-size:18px}
+    .badge{
+      background:#eef2ff;color:var(--accent);padding:6px 10px;border-radius:999px;font-weight:600;font-size:13px;
+    }
+    .fields{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    .field{
+      background:#fbfbff;border-radius:10px;padding:12px;border:1px solid #f1f3f8;
+    }
+    .field h4{margin:0;font-size:13px;color:var(--muted)}
+    .field p{margin:6px 0 0;font-weight:600;font-size:15px;word-break:break-word}
+
+    .full-row{grid-column:1/-1}
+    .actions{display:flex;gap:10px;align-items:center}
+    .btn{
+      padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:white;font-weight:600;cursor:pointer;
+    }
+    .btn.ghost{background:transparent;color:var(--accent);border:1px solid #e7e7ff}
+    .btn.danger{background:var(--danger)}
+
+    .placeholder{
+      text-align:center;padding:40px;color:var(--muted);
+    }
+
+    /* Responsive */
+    @media (max-width:880px){
+      body{padding:10px}
+      .container{grid-template-columns:1fr; padding-bottom:10px}
+      .sidebar{order:2}
+      .details{order:1}
+      .fields{grid-template-columns:1fr}
+      .search input{font-size:13px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <aside class="sidebar" aria-label="Submissions list">
+      <div class="top">
+        <div class="logo">SB</div>
+        <div>
+          <h3>Submissions</h3>
+          <div style="font-size:13px;color:var(--muted)">Collection: <strong>submissions</strong></div>
+        </div>
+      </div>
+
+      <div class="search">
+        <input id="qSearch" placeholder="Search name, school, district..." />
+        <button id="refreshBtn" title="Refresh">⭮</button>
+      </div>
+
+      <div class="list" id="list"></div>
+      <div style="padding:12px;border-top:1px solid #eef1f6;color:var(--muted);font-size:13px">
+        <div id="count">0 results</div>
+      </div>
+    </aside>
+
+    <main class="details" aria-live="polite">
+      <div class="details-head">
+        <h2 id="detailTitle">Select a submission</h2>
+        <div class="actions">
+          <div class="badge" id="createdAtBadge">--</div>
+          <button class="btn ghost" id="openDriveBtn" style="display:none">Open Drive</button>
+          <button class="btn" id="downloadBtn" style="display:none">JSON</button>
+        </div>
+      </div>
+
+      <div id="detailBody" class="placeholder">
+        Click a name on the left to view details. If Firebase is configured, this updates live when submissions change.
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    // ====== CONFIG - paste your Firebase config here ======
+    const firebaseConfig = {
+  apiKey: "AIzaSyAsQsDsbTp_UB6qyDgxQLwhVBs9UrCuors",
+  authDomain: "elocution-form.firebaseapp.com",
+  projectId: "elocution-form",
+  storageBucket: "elocution-form.firebasestorage.app",
+  messagingSenderId: "936475111029",
+  appId: "1:936475111029:web:33e0ddff32913e0f2e923c"
+    };
+    // =====================================================
+
+    // Simple sample data used when firebaseConfig.apiKey is left as placeholder
+    const SAMPLE_DATA = [
+      {
+        id: "sample1",
+        student_name: "Amuthalakshmi .K.N",
+        club_name: "Bala jyothi",
+        contact1: "8075374952",
+        contact2: "",
+        created_at: { seconds: Math.floor(Date.now()/1000) - 3600 }, // mimic firebase timestamp
+        district: "Thrissur",
+        drive_link_confirmed: false,
+        gender: "Female",
+        member: "Yes",
+        residence: "Madakkathara",
+        school: "U.P.S Thanikkudam",
+        state: "Kerala",
+        video_link: null,
+      },
+      {
+        id: "sample2",
+        student_name: "Ravi Kumar",
+        club_name: "Sunrise Club",
+        contact1: "9123456789",
+        created_at: { seconds: Math.floor(Date.now()/1000) - 86400 },
+        district: "Ernakulam",
+        drive_link_confirmed: true,
+        gender: "Male",
+        member: "No",
+        residence: "Kakkanad",
+        school: "St Mary's",
+        state: "Kerala",
+        video_link: "https://drive.google.com/file/d/abc/view",
+      }
+    ];
+
+    // Utility: convert firebase timestamp-like to readable string
+    function formatTimestamp(ts){
+      if (!ts) return '--';
+      // ts may be Firestore Timestamp object or object with seconds
+      let d;
+      if (ts.toDate) d = ts.toDate();
+      else if (typeof ts.seconds === 'number') d = new Date(ts.seconds * 1000);
+      else d = new Date(ts);
+      return d.toLocaleString();
+    }
+
+    // DOM refs
+    const listEl = document.getElementById('list');
+    const detailTitle = document.getElementById('detailTitle');
+    const detailBody = document.getElementById('detailBody');
+    const createdAtBadge = document.getElementById('createdAtBadge');
+    const openDriveBtn = document.getElementById('openDriveBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const countEl = document.getElementById('count');
+    const searchInput = document.getElementById('qSearch');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    let submissions = []; // array of {id, data}
+    let selectedId = null;
+
+    // Render the sidebar list
+    function renderList(filterText = ''){
+      listEl.innerHTML = '';
+      const ft = filterText.trim().toLowerCase();
+      const filtered = submissions.filter(s=>{
+        if (!ft) return true;
+        // search common fields
+        const d = s.data;
+        return (d.student_name||'').toLowerCase().includes(ft)
+          || (d.school||'').toLowerCase().includes(ft)
+          || (d.district||'').toLowerCase().includes(ft)
+          || (d.club_name||'').toLowerCase().includes(ft)
+          || (d.contact1||'').toLowerCase().includes(ft);
+      });
+
+      countEl.textContent = `${filtered.length} result${filtered.length === 1 ? '' : 's'}`;
+
+      filtered.forEach(s=>{
+        const d = s.data;
+        const li = document.createElement('div');
+        li.className = 'item' + (s.id === selectedId ? ' selected' : '');
+        li.dataset.id = s.id;
+
+        const initials = (d.student_name || d.school || '—').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = initials;
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const title = document.createElement('div');
+        title.className = 'title';
+        title.textContent = d.student_name || '(no name)';
+        const sub = document.createElement('div');
+        sub.className = 'sub';
+        sub.textContent = `${d.school || d.club_name || ''} • ${d.district || ''}`;
+        meta.appendChild(title);
+        meta.appendChild(sub);
+
+        const time = document.createElement('div');
+        time.className = 'small-time';
+        time.textContent = formatTimestamp(d.created_at);
+
+        li.appendChild(avatar);
+        li.appendChild(meta);
+        li.appendChild(time);
+
+        li.addEventListener('click', ()=>selectSubmission(s.id));
+        listEl.appendChild(li);
+      });
+
+      if (filtered.length === 0){
+        listEl.innerHTML = `<div style="padding:20px;color:var(--muted)">No submissions found.</div>`;
+      }
+    }
+
+    // Render details for selected record
+    function renderDetails(id){
+      const s = submissions.find(x => x.id === id);
+      selectedId = id;
+      // update list selection classes
+      Array.from(document.querySelectorAll('.item')).forEach(el=>{
+        el.classList.toggle('selected', el.dataset.id === id);
+      });
+
+      if (!s){
+        detailTitle.textContent = 'Select a submission';
+        detailBody.innerHTML = '<div class="placeholder">Could not find the selected submission.</div>';
+        createdAtBadge.textContent = '--';
+        openDriveBtn.style.display = 'none';
+        downloadBtn.style.display = 'none';
+        return;
+      }
+
+      const d = s.data;
+      detailTitle.textContent = d.student_name || '(no name)';
+      createdAtBadge.textContent = formatTimestamp(d.created_at);
+
+      // Build fields grid
+      const fields = [
+        ['Student name', d.student_name],
+        ['School', d.school],
+        ['Club', d.club_name],
+        ['State', d.state],
+        ['District', d.district],
+        ['Residence', d.residence],
+        ['Gender', d.gender],
+        ['Member', d.member],
+        ['Contact 1', d.contact1],
+        ['Contact 2', d.contact2],
+        ['Drive link confirmed', d.drive_link_confirmed === true ? 'Yes' : (d.drive_link_confirmed === false ? 'No' : d.drive_link_confirmed)],
+        ['Video link', d.video_link],
+      ];
+
+      const grid = document.createElement('div');
+      grid.className = 'fields';
+
+      fields.forEach(([label, value])=>{
+        const card = document.createElement('div');
+        card.className = 'field';
+        if (label === 'Video link') card.classList.add('full-row');
+        const h = document.createElement('h4');
+        h.textContent = label;
+        const p = document.createElement('p');
+        p.innerHTML = value ? escapeHtml(value) : '<span style="color:#9ca3af">—</span>';
+        card.appendChild(h);
+        card.appendChild(p);
+        grid.appendChild(card);
+      });
+
+      // created_at raw
+      const rawCard = document.createElement('div');
+      rawCard.className = 'field full-row';
+      const hraw = document.createElement('h4');
+      hraw.textContent = 'Created (raw)';
+      const praw = document.createElement('p');
+      praw.textContent = formatTimestamp(d.created_at);
+      rawCard.appendChild(hraw);
+      rawCard.appendChild(praw);
+      grid.appendChild(rawCard);
+
+      detailBody.innerHTML = '';
+      detailBody.appendChild(grid);
+
+      // show drive button if link exists
+      if (d.drive_link && typeof d.drive_link === 'string') {
+        openDriveBtn.style.display = '';
+        openDriveBtn.onclick = ()=>window.open(d.drive_link, '_blank');
+      } else if (d.video_link && typeof d.video_link === 'string') {
+        openDriveBtn.style.display = '';
+        openDriveBtn.textContent = 'Open Video';
+        openDriveBtn.onclick = ()=>window.open(d.video_link, '_blank');
+      } else {
+        openDriveBtn.style.display = 'none';
+      }
+
+      // show download JSON
+      downloadBtn.style.display = '';
+      downloadBtn.onclick = ()=>{
+        const blob = new Blob([JSON.stringify({id:s.id, data:s.data}, null, 2)], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(d.student_name||'submission')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
+    }
+
+    // safe html escape
+    function escapeHtml(text){
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function selectSubmission(id){
+      renderDetails(id);
+    }
+
+    // Initialize: either Firebase Firestore or sample data
+    async function init(){
+      // if firebaseConfig.apiKey contains placeholder, use sample
+      const useSample = !firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('YOUR_');
+
+      if (useSample){
+        console.warn('Firebase config not set — using sample data. Paste your Firebase config in the "firebaseConfig" object to connect to Firestore.');
+        submissions = SAMPLE_DATA.map(item=>{
+          // normalize created_at for formatting function
+          return { id: item.id, data: item };
+        }).sort((a,b)=> (b.data.created_at.seconds||0) - (a.data.created_at.seconds||0));
+        renderList();
+        // auto-select first item
+        if (submissions.length) selectSubmission(submissions[0].id);
+        return;
+      }
+
+      // Load Firebase modular SDK from CDN
+      try {
+        const [{ initializeApp }, { getFirestore, collection, query, orderBy, onSnapshot, getDocs }] = await Promise.all([
+          import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js'),
+          import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js')
+        ]);
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const colRef = collection(db, 'submissions');
+        // order by created_at if available; fallback to document id
+        let q;
+        try {
+          q = query(colRef, orderBy('created_at', 'desc'));
+        } catch(e){
+          q = colRef;
+        }
+
+        // real-time listener
+        onSnapshot(q, snap=>{
+          const arr = [];
+          snap.forEach(doc=>{
+            arr.push({id: doc.id, data: doc.data()});
+          });
+          // normalize created_at if Firestore Timestamp
+          arr.forEach(x=>{
+            if (x.data && x.data.created_at && typeof x.data.created_at.toDate === 'function'){
+              // keep as-is; formatTimestamp handles toDate
+            } else if (x.data && typeof x.data.created_at === 'number'){
+              x.data.created_at = { seconds: x.data.created_at };
+            }
+          });
+          submissions = arr;
+          // sort by created_at seconds descending if present
+          submissions.sort((a,b)=>{
+            const as = (a.data.created_at && a.data.created_at.seconds) || 0;
+            const bs = (b.data.created_at && b.data.created_at.seconds) || 0;
+            return bs - as;
+          });
+          renderList(searchInput.value);
+          // auto-select first if nothing selected
+          if (!selectedId && submissions.length) selectSubmission(submissions[0].id);
+        }, err=>{
+          console.error('snapshot error', err);
+          alert('Error reading submissions: ' + err.message);
+        });
+
+      } catch(err){
+        console.error('Error loading firebase SDK', err);
+        alert('Failed to load Firebase. See console for details.');
+      }
+    }
+
+    // wire up search and refresh
+    searchInput.addEventListener('input', ()=> renderList(searchInput.value));
+    refreshBtn.addEventListener('click', ()=> {
+      // In case of sample mode, just re-render; firestore mode is realtime
+      renderList(searchInput.value);
+    });
+
+    // Init
+    init();
+
+    // Expose for debugging (optional)
+    window.__admin_debug = {
+      setSubmissions: arr => { submissions = arr; renderList(); if (arr.length) selectSubmission(arr[0].id); }
+    };
+  </script>
+</body>
+</html>
