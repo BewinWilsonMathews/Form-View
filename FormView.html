@@ -58,15 +58,6 @@
       font-size:16px;
     }
     .top h3{margin:0;font-size:15px}
-    .search{
-      margin:12px 16px 8px 16px;
-      display:flex;
-      gap:8px;
-    }
-    .search input{
-      flex:1;padding:10px 12px;border-radius:8px;border:1px solid #e6e9ef;font-size:14px;
-      outline:none;
-    }
     .list{
       overflow:auto;
       padding:8px;
@@ -142,7 +133,6 @@
       .sidebar{order:2}
       .details{order:1}
       .fields{grid-template-columns:1fr}
-      .search input{font-size:13px}
     }
   </style>
 </head>
@@ -155,11 +145,6 @@
           <h3>Submissions</h3>
           <div style="font-size:13px;color:var(--muted)">Collection: <strong>submissions</strong></div>
         </div>
-      </div>
-
-      <div class="search">
-        <input id="qSearch" placeholder="Search name, school, district..." />
-        <button id="refreshBtn" title="Refresh">⭮</button>
       </div>
 
       <div class="list" id="list"></div>
@@ -187,16 +172,16 @@
   <script type="module">
     // ====== CONFIG - paste your Firebase config here ======
     const firebaseConfig = {
-  apiKey: "AIzaSyAsQsDsbTp_UB6qyDgxQLwhVBs9UrCuors",
-  authDomain: "elocution-form.firebaseapp.com",
-  projectId: "elocution-form",
-  storageBucket: "elocution-form.firebasestorage.app",
-  messagingSenderId: "936475111029",
-  appId: "1:936475111029:web:33e0ddff32913e0f2e923c"
+      apiKey: "AIzaSyAsQsDsbTp_UB6qyDgxQLwhVBs9UrCuors",
+      authDomain: "elocution-form.firebaseapp.com",
+      projectId: "elocution-form",
+      storageBucket: "elocution-form.firebasestorage.app",
+      messagingSenderId: "936475111029",
+      appId: "1:936475111029:web:33e0ddff32913e0f2e923c"
     };
     // =====================================================
 
-    // Simple sample data used when firebaseConfig.apiKey is left as placeholder
+    // Sample data includes class and category
     const SAMPLE_DATA = [
       {
         id: "sample1",
@@ -204,7 +189,7 @@
         club_name: "Bala jyothi",
         contact1: "8075374952",
         contact2: "",
-        created_at: { seconds: Math.floor(Date.now()/1000) - 3600 }, // mimic firebase timestamp
+        created_at: { seconds: Math.floor(Date.now()/1000) - 3600 },
         district: "Thrissur",
         drive_link_confirmed: false,
         gender: "Female",
@@ -213,6 +198,8 @@
         school: "U.P.S Thanikkudam",
         state: "Kerala",
         video_link: null,
+        class: "8 A",           // <-- added
+        category: "Senior"      // <-- added
       },
       {
         id: "sample2",
@@ -228,13 +215,14 @@
         school: "St Mary's",
         state: "Kerala",
         video_link: "https://drive.google.com/file/d/abc/view",
+        class: "10 B",          // <-- added
+        category: "Junior"      // <-- added
       }
     ];
 
     // Utility: convert firebase timestamp-like to readable string
     function formatTimestamp(ts){
       if (!ts) return '--';
-      // ts may be Firestore Timestamp object or object with seconds
       let d;
       if (ts.toDate) d = ts.toDate();
       else if (typeof ts.seconds === 'number') d = new Date(ts.seconds * 1000);
@@ -250,30 +238,21 @@
     const openDriveBtn = document.getElementById('openDriveBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const countEl = document.getElementById('count');
-    const searchInput = document.getElementById('qSearch');
-    const refreshBtn = document.getElementById('refreshBtn');
 
     let submissions = []; // array of {id, data}
     let selectedId = null;
 
-    // Render the sidebar list
-    function renderList(filterText = ''){
+    // Render the sidebar list (no search — just shows basic info)
+    function renderList(){
       listEl.innerHTML = '';
-      const ft = filterText.trim().toLowerCase();
-      const filtered = submissions.filter(s=>{
-        if (!ft) return true;
-        // search common fields
-        const d = s.data;
-        return (d.student_name||'').toLowerCase().includes(ft)
-          || (d.school||'').toLowerCase().includes(ft)
-          || (d.district||'').toLowerCase().includes(ft)
-          || (d.club_name||'').toLowerCase().includes(ft)
-          || (d.contact1||'').toLowerCase().includes(ft);
-      });
+      countEl.textContent = `${submissions.length} result${submissions.length === 1 ? '' : 's'}`;
 
-      countEl.textContent = `${filtered.length} result${filtered.length === 1 ? '' : 's'}`;
+      if (submissions.length === 0){
+        listEl.innerHTML = `<div style="padding:20px;color:var(--muted)">No submissions found.</div>`;
+        return;
+      }
 
-      filtered.forEach(s=>{
+      submissions.forEach(s=>{
         const d = s.data;
         const li = document.createElement('div');
         li.className = 'item' + (s.id === selectedId ? ' selected' : '');
@@ -291,7 +270,12 @@
         title.textContent = d.student_name || '(no name)';
         const sub = document.createElement('div');
         sub.className = 'sub';
-        sub.textContent = `${d.school || d.club_name || ''} • ${d.district || ''}`;
+        // show school, class and category in sidebar subtext
+        const schoolPart = d.school ? d.school : (d.club_name ? d.club_name : '');
+        const classPart = d.class ? ` • ${d.class}` : '';
+        const catPart = d.category ? ` • ${d.category}` : '';
+        const districtPart = d.district ? ` • ${d.district}` : '';
+        sub.textContent = `${schoolPart}${classPart}${catPart}${districtPart}`;
         meta.appendChild(title);
         meta.appendChild(sub);
 
@@ -306,17 +290,12 @@
         li.addEventListener('click', ()=>selectSubmission(s.id));
         listEl.appendChild(li);
       });
-
-      if (filtered.length === 0){
-        listEl.innerHTML = `<div style="padding:20px;color:var(--muted)">No submissions found.</div>`;
-      }
     }
 
-    // Render details for selected record
+    // Render details for selected record (includes class & category)
     function renderDetails(id){
       const s = submissions.find(x => x.id === id);
       selectedId = id;
-      // update list selection classes
       Array.from(document.querySelectorAll('.item')).forEach(el=>{
         el.classList.toggle('selected', el.dataset.id === id);
       });
@@ -334,10 +313,12 @@
       detailTitle.textContent = d.student_name || '(no name)';
       createdAtBadge.textContent = formatTimestamp(d.created_at);
 
-      // Build fields grid
+      // Build fields grid — added Class and Category
       const fields = [
         ['Student name', d.student_name],
         ['School', d.school],
+        ['Class', d.class],           // <-- added
+        ['Category', d.category],     // <-- added
         ['Club', d.club_name],
         ['State', d.state],
         ['District', d.district],
@@ -380,9 +361,10 @@
       detailBody.innerHTML = '';
       detailBody.appendChild(grid);
 
-      // show drive button if link exists
+      // show drive/video button if link exists
       if (d.drive_link && typeof d.drive_link === 'string') {
         openDriveBtn.style.display = '';
+        openDriveBtn.textContent = 'Open Drive';
         openDriveBtn.onclick = ()=>window.open(d.drive_link, '_blank');
       } else if (d.video_link && typeof d.video_link === 'string') {
         openDriveBtn.style.display = '';
@@ -421,24 +403,20 @@
 
     // Initialize: either Firebase Firestore or sample data
     async function init(){
-      // if firebaseConfig.apiKey contains placeholder, use sample
       const useSample = !firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('YOUR_');
 
       if (useSample){
         console.warn('Firebase config not set — using sample data. Paste your Firebase config in the "firebaseConfig" object to connect to Firestore.');
-        submissions = SAMPLE_DATA.map(item=>{
-          // normalize created_at for formatting function
-          return { id: item.id, data: item };
-        }).sort((a,b)=> (b.data.created_at.seconds||0) - (a.data.created_at.seconds||0));
+        submissions = SAMPLE_DATA.map(item=>({ id: item.id, data: item }));
+        // sort by created_at descending
+        submissions.sort((a,b)=> (b.data.created_at.seconds||0) - (a.data.created_at.seconds||0));
         renderList();
-        // auto-select first item
         if (submissions.length) selectSubmission(submissions[0].id);
         return;
       }
 
-      // Load Firebase modular SDK from CDN
       try {
-        const [{ initializeApp }, { getFirestore, collection, query, orderBy, onSnapshot, getDocs }] = await Promise.all([
+        const [{ initializeApp }, { getFirestore, collection, query, orderBy, onSnapshot }] = await Promise.all([
           import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js'),
           import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js')
         ]);
@@ -447,7 +425,6 @@
         const db = getFirestore(app);
 
         const colRef = collection(db, 'submissions');
-        // order by created_at if available; fallback to document id
         let q;
         try {
           q = query(colRef, orderBy('created_at', 'desc'));
@@ -455,7 +432,6 @@
           q = colRef;
         }
 
-        // real-time listener
         onSnapshot(q, snap=>{
           const arr = [];
           snap.forEach(doc=>{
@@ -476,8 +452,7 @@
             const bs = (b.data.created_at && b.data.created_at.seconds) || 0;
             return bs - as;
           });
-          renderList(searchInput.value);
-          // auto-select first if nothing selected
+          renderList();
           if (!selectedId && submissions.length) selectSubmission(submissions[0].id);
         }, err=>{
           console.error('snapshot error', err);
@@ -489,13 +464,6 @@
         alert('Failed to load Firebase. See console for details.');
       }
     }
-
-    // wire up search and refresh
-    searchInput.addEventListener('input', ()=> renderList(searchInput.value));
-    refreshBtn.addEventListener('click', ()=> {
-      // In case of sample mode, just re-render; firestore mode is realtime
-      renderList(searchInput.value);
-    });
 
     // Init
     init();
